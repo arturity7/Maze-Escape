@@ -7,9 +7,9 @@ Este repositório é um template para os grupos da disciplina. A proposta é com
 ## Integrantes do grupo
 
 - Arthur Gabriel
-- Nome do integrante 2
-- Nome do integrante 3
-- Nome do integrante 4
+- Erick Calixto
+- Crispim Bruno
+
 
 ## Estrutura do projeto
 
@@ -22,43 +22,88 @@ Este repositório é um template para os grupos da disciplina. A proposta é com
 
 ## Descrição do jogo
 
-Descreva brevemente a ideia principal do jogo.
+Conceito do Jogo
 
-Exemplo:
+Maze Escape é um jogo desenvolvido em Python no qual o jogador deve explorar um labirinto e encontrar a saída antes de ficar preso. O desafio principal consiste em navegar pelo mapa utilizando raciocínio lógico e percepção espacial para descobrir o caminho correto.
 
-> O jogo consiste em controlar um personagem que deve coletar moedas e evitar obstáculos. O jogador ganha pontos ao coletar itens e perde vidas ao colidir com obstáculos. A partida termina quando o tempo acaba ou quando o jogador perde todas as vidas.
+O jogo será executado em terminal e terá foco na aplicação prática dos conceitos estudados na disciplina, como estruturas de dados, funções, matrizes, manipulação de arquivos e controle de fluxo.
+
+Principais Elementos do Jogo
+
+O jogo será composto pelos seguintes elementos:
+
+Jogador controlado pelo teclado.
+Labirinto formado por paredes e caminhos livres.
+Ponto inicial do mapa.
+Saída do labirinto.
+Sistema de movimentação.
+Contador de movimentos.
+Diferentes mapas carregados por arquivos.
+
+Representação simplificada:
+
+##########
+#P # #
+
+### #
+# S#
+
+##########
+
+Onde:
+
+P = Jogador
+S = Saída
+
+
+
+
+= Parede
+Espaço vazio = Caminho livre
+
 
 ## Objetivo do jogador
 
-Explique o que o jogador precisa fazer para vencer ou avançar no jogo.
+Vitória
 
-Exemplo:
+O jogador vence ao alcançar a saída do labirinto.
 
-> O objetivo é coletar a maior quantidade possível de itens antes que o tempo acabe, evitando colisões com os obstáculos.
+Derrota
+
+Na versão mínima não haverá sistema de derrota.
+
+Como funcionalidade futura, poderão ser adicionados:
+
+Limite de tempo.
+Armadilhas.
+Inimigos.
+Sistema de vidas.
+Encerramento
+
+O jogo será encerrado quando:
+
+O jogador alcançar a saída.
+O jogador escolher sair manualmente.
+
 
 ## Regras do jogo
 
-Liste as principais regras do jogo.
-
-Exemplo:
-
-- O jogador se movimenta usando as setas do teclado.
-- Cada item coletado aumenta a pontuação.
-- Colidir com um obstáculo reduz a quantidade de vidas.
-- A partida termina quando o jogador perde todas as vidas ou quando o tempo acaba.
+O jogador inicia em uma posição definida no mapa.
+Apenas movimentos válidos serão permitidos.
+Não será possível atravessar paredes.
+O jogador deverá encontrar a saída do labirinto.
+Cada movimento será contabilizado.
+O jogo poderá possuir diferentes níveis de dificuldade através de mapas distintos.
 
 ## Controles
 
-Informe as teclas ou comandos utilizados no jogo.
+Os controles serão realizados pelo teclado:
 
-Exemplo:
-
-- Seta para cima: mover para cima
-- Seta para baixo: mover para baixo
-- Seta para esquerda: mover para esquerda
-- Seta para direita: mover para direita
-- Espaço: realizar ação
-- ESC: sair do jogo
+W → mover para cima
+S → mover para baixo
+A → mover para a esquerda
+D → mover para a direita
+Q → sair do jogo
 
 ## Como executar o projeto
 
