@@ -4,11 +4,10 @@ from config import(
     WIDTH,
     HEIGHT,
     FPS,
-    TITULO,
+    TITULO
 )
 pygame.init()
 pygame.mixer.init()
-
 
 #tamanho da tela--------
 fullscreen = False
@@ -23,14 +22,14 @@ visible_volume = False
 volume_timer = 0
 
 #player
-keys = pygame.key.get_pressed()
-player_x = 100
 player_y = 100
+player_x = 100
 
 player_width = 32
 player_height = 32
 
 player_speed = 5
+player_direction = "down"
 
 player_rect = pygame.Rect(
     100,
@@ -86,22 +85,27 @@ while True:
         pygame.draw.rect(screen, (255, 255, 255), (20, 20, volume * 200, 20))
 
     #mov do player
+    keys = pygame.key.get_pressed()
     pygame.draw.rect(
     screen,
     (255,255,255),
     player_rect
-)
+    )
     if keys[pygame.K_w]:
-        player_y -= player_speed
+        player_rect.y -= player_speed
+        player_direction = "up"
 
     if keys[pygame.K_s]:
-        player_y += player_speed
+        player_rect.y += player_speed
+        player_direction = "down"
 
     if keys[pygame.K_a]:
-        player_x -= player_speed
+        player_rect.x -= player_speed
+        player_direction = "left"
 
     if keys[pygame.K_d]:
-        player_x += player_speed
+        player_rect.x += player_speed
+        player_direction = "right"
 
     pygame.display.update()
     clock.tick(60)
