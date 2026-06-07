@@ -3,7 +3,7 @@ WIDTH = 1200
 HEIGHT = 600
 FPS = 60
 
-TITULO_JOGO = "Maze"
+TITULO = "Maze"
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
