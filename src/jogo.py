@@ -1,4 +1,6 @@
 import pygame
+import os
+import random
 from funcoes import (
     carregar_mapa
 )
@@ -18,11 +20,25 @@ screen = pygame.display.set_mode(( WIDTH, HEIGHT ))
 
 #area da musica fml-----------
 pygame.mixer_music.load("assets\sons\soundtrack.mp3")
-volume = max(0.0, min(1.0, 0.3))
+volume = max(0.0, min(1.0, 0.15))
 pygame.mixer.music.set_volume(volume)
 pygame.mixer.music.play(-1, fade_ms=(3000))
 visible_volume = False
 volume_timer = 0
+
+pasta_sons = os.path.join(os.path.dirname(__file__), "../assets/sons/eco-loc")
+sons_eco = []
+
+eco_cooldown = 0
+eco_cooldown_max = 2000
+
+for arquivo in os.listdir(pasta_sons):
+    if arquivo.endswith(".ogg"):
+        caminho = os.path.join(pasta_sons, arquivo)
+        sons_eco.append(pygame.mixer.Sound(caminho))
+        som = pygame.mixer.Sound(caminho)
+        som.set_volume(0.3) 
+        sons_eco.append(som)
 
 #player
 player_y = 100
@@ -99,10 +115,15 @@ while True:
                 volume_timer = pygame.time.get_ticks()
 
             if event.key == pygame.K_q:
-                onda = True
-                onda_x = player_rect.centerx
-                onda_y = player_rect.centery
-                onda_radius = 0   
+                agora = pygame.time.get_ticks()
+                if agora - eco_cooldown >= eco_cooldown_max:
+                    onda = True
+                    onda_x = player_rect.centerx
+                    onda_y = player_rect.centery
+                    onda_radius = 0
+                    som = random.choice(sons_eco)
+                    som.play()
+                    eco_cooldown = agora  
 
     #volume desaparecendo hehehe--------
     if visible_volume:
