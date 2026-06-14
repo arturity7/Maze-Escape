@@ -16,14 +16,14 @@ Exemplo:
 
 Liste os integrantes do grupo.
 
-- Nome 1:
-- Nome 2:
-- Nome 3:
-- Nome 4:
+- Nome 1: Crispim Bruno
+- Nome 2: Arthur Gabriel
+- Nome 3: Erick Calixto
+- Nome 4: Lukas Nathan
 
 ## 3. Tipo de jogo
 
-Indique o tipo de jogo que será desenvolvido.
+Labirinto
 
 Exemplos:
 
@@ -42,22 +42,25 @@ Exemplos:
 
 Tipo escolhido pelo grupo:
 
-> Escreva aqui.
+Labirinto
 
 ## 4. Descrição geral do jogo
 
-Explique, em poucas linhas, como o jogo funcionará.
+Um labirinto escuro, onde o player precisa sair com base na ecolocalização
 
 Procure responder:
 
 - O que aparece na tela?
+Apenas o personagem (caso não clique em nenhum botão. Após o clique, aparece as paredes.)
 - O que o jogador controla?
+Um personagem
 - O que o jogador precisa fazer?
+Escapar
 - Quais desafios aparecem durante a partida?
-
+O mapa em si
 Descrição:
 
-> Escreva aqui.
+Tente fugir deste labirinto (se puder)
 
 ## 5. Objetivo do jogador
 
@@ -65,33 +68,22 @@ Explique qual é o objetivo principal do jogador.
 
 Exemplos:
 
-- coletar o maior número possível de itens;
-- sobreviver pelo maior tempo possível;
-- chegar até o final do labirinto;
-- acertar alvos;
-- responder perguntas corretamente;
-- evitar obstáculos;
-- quebrar todos os blocos.
+Sair
 
 Objetivo:
 
-> Escreva aqui.
+Sair
 
 ## 6. Regras principais
 
-Liste as principais regras do jogo.
+Aperte q e veja as paredes
 
 Exemplo:
 
-- O jogador começa com 3 vidas.
-- Cada moeda coletada vale 10 pontos.
-- Cada colisão com obstáculo remove 1 vida.
-- A partida termina quando as vidas chegam a zero.
-- O jogador vence se alcançar 100 pontos.
-
+ele não morre nem perde
 Regras do grupo:
 
-- Regra 1:
+- Regra 1: saia
 - Regra 2:
 - Regra 3:
 - Regra 4:
@@ -99,19 +91,15 @@ Regras do grupo:
 
 ## 7. Condição de vitória
 
-Explique como o jogador vence ou conclui o jogo.
+sair
 
 Exemplos:
 
-- atingir determinada pontuação;
-- chegar ao final da fase;
-- sobreviver até o tempo acabar;
-- responder uma quantidade mínima de perguntas;
-- quebrar todos os blocos.
+saiu
 
 Condição de vitória:
 
-> Escreva aqui.
+sair
 
 ## 8. Condição de derrota ou encerramento
 
@@ -127,11 +115,11 @@ Exemplos:
 
 Condição de derrota ou encerramento:
 
-> Escreva aqui.
+Desistir
 
 ## 9. Elementos previstos no jogo
 
-Descreva os principais elementos que farão parte do jogo.
+PAredes e jogador
 
 ## Jogador ou elemento principal
 
@@ -141,7 +129,7 @@ Exemplo:
 
 Descrição:
 
-> Escreva aqui.
+Personagem controlado por WASD
 
 ## Obstáculos, inimigos ou desafios
 
@@ -151,7 +139,7 @@ Exemplo:
 
 Descrição:
 
-> Escreva aqui.
+Parede
 
 ## Itens, alvos ou objetos de interação
 
@@ -159,9 +147,8 @@ Exemplo:
 
 > Moedas aparecem na tela e aumentam a pontuação quando coletadas.
 
-Descrição:
+saida
 
-> Escreva aqui.
 
 ## Pontuação, vidas, tempo ou progresso
 
@@ -169,7 +156,7 @@ Exemplo:
 
 > O jogador começa com 3 vidas e ganha 10 pontos por item coletado.
 
-Descrição:
+n tem
 
 > Escreva aqui.
 
@@ -186,11 +173,12 @@ Exemplo:
 - Espaço: realizar ação
 - ESC: sair do jogo
 
+
 Controles do grupo:
 
-- Tecla/comando:
-- Tecla/comando:
-- Tecla/comando:
+- Tecla/comando: f11 tela cheia
+- Tecla/comando: - / = volume
+- Tecla/comando: q ver paredes
 
 ## 11. Organização inicial do código
 
