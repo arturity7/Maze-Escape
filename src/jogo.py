@@ -891,14 +891,14 @@ while True:
         for m in morcegos:
             m.update(dt, paredes, jogadores)
 
-        # Ondas
+        # Ondas ------------------------------------------!!!!!!!!!!
         for o in ondas[:]:
             o.update()
             o.reveal(wall_vis, wall_segs_e)
             if not o.ativa and not o.parts:
                 ondas.remove(o)
 
-        # Fade das paredes
+        # Fade das paredes --------------------------------------!!!!!!!
         for idx in list(wall_vis):
             wall_vis[idx] -= 2
             if wall_vis[idx] <= 0:
