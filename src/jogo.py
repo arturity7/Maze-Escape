@@ -9,7 +9,7 @@
 ║  3. SPRITESHEET             linha ~110   get_frame(), build_frames║
 ║  4. CLASSE Jogador          linha ~180   update(), draw()         ║
 ║  5. CLASSE Morcego          linha ~310   inimigo invisível        ║
-║  6. CLASSE Onda             linha ~370   eco-localização          ║
+║  6. CLASSE Onda             linha ~390   eco-localização          ║
 ║  7. MAPA & PAREDES          linha ~450   segmentos de linha       ║
 ║  8. TELA DE START           linha ~510   menu principal           ║
 ║  9. TELA DE COMANDOS        linha ~620   tutorial pré-jogo        ║
@@ -108,52 +108,60 @@ BACKGROUND = None   # <- substitua None pela variável acima
 #   LEFT  run       : cols 11, 12, 13, 14
 #   RIGHT run       : cols 16, 17, 18, 19
 # ═══════════════════════════════════════════════════════════════════
-_SPRITE_PATH = os.path.join(_base, "../assets/imagens/spritesheet.bmp")
-_sheet = pygame.image.load(_SPRITE_PATH).convert_alpha()
+_base = os.path.dirname(os.path.abspath(__file__))
 
-CELL_W = 128   # largura de cada frame no spritesheet
-CELL_H = 256   # altura de cada frame no spritesheet
+ASSETS = os.path.join(_base, "..", "assets", "imagens", "spritesheets")
 
-Y_WALK = 88    # y da linha de caminhada
-Y_RUN  = 344   # y da linha de corrida
+P1_PATH = os.path.join(ASSETS, "spritesheet.png")
+P2_PATH = os.path.join(ASSETS, "spritesheet2.png")
 
-def get_frame(col: int, row_y: int, scale: int = 40) -> pygame.Surface:
-    """
-    Recorta um único frame da spritesheet e o escala.
-    col   : coluna (0-21, cada uma tem 128px)
-    row_y : posição y da linha no spritesheet (Y_WALK ou Y_RUN)
-    scale : tamanho final em pixels (quadrado)
-    """
-    src = pygame.Rect(col * CELL_W, row_y, CELL_W, CELL_H)
-    buf = pygame.Surface((CELL_W, CELL_H), pygame.SRCALPHA)
-    buf.blit(_sheet, (0, 0), src)
-    return pygame.transform.scale(buf, (scale, scale))
+sheet1 = pygame.image.load(P1_PATH).convert_alpha()
+sheet2 = pygame.image.load(P2_PATH).convert_alpha()
 
-def build_frames(y_walk: int, y_run: int, scale: int = 40) -> dict:
-    """
-    Constrói dicionário de frames para as 4 direções × 2 modos.
-    Retorna: { "down": {"walk": [...], "run": [...]}, ... }
-    """
+ROWS = 4
+COLS = 4
+
+def get_frame(sheet, col, row, scale=40):
+    cell_w = sheet.get_width() // 4
+    cell_h = sheet.get_height() // 4
+
+    src = pygame.Rect(
+        col * cell_w,
+        row * cell_h,
+        cell_w,
+        cell_h
+    )
+
+    frame = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
+    frame.blit(sheet, (0, 0), src)
+
+    return pygame.transform.scale(frame, (scale, scale))
+
+def build_frames(sheet, scale=40):
     return {
-        "down":  {
-            "walk": [get_frame(c, y_walk, scale) for c in [0, 1]],
-            "run":  [get_frame(c, y_run,  scale) for c in [5, 6]],
+        "down": {
+            "walk": [get_frame(sheet, c, 0, scale) for c in range(4)],
+            "run":  [get_frame(sheet, c, 0, scale) for c in range(4)]
         },
-        "up":    {
-            "walk": [get_frame(c, y_walk, scale) for c in [2, 3]],
-            "run":  [get_frame(c, y_run,  scale) for c in [0, 1]],
-        },
-        "left":  {
-            "walk": [get_frame(c, y_walk, scale) for c in [9, 10, 11, 12]],
-            "run":  [get_frame(c, y_run,  scale) for c in [11, 12, 13, 14]],
+        "left": {
+            "walk": [get_frame(sheet, c, 1, scale) for c in range(4)],
+            "run":  [get_frame(sheet, c, 1, scale) for c in range(4)]
         },
         "right": {
-            "walk": [get_frame(c, y_walk, scale) for c in [16, 17, 18, 19]],
-            "run":  [get_frame(c, y_run,  scale) for c in [16, 17, 18, 19]],
+            "walk": [get_frame(sheet, c, 2, scale) for c in range(4)],
+            "run":  [get_frame(sheet, c, 2, scale) for c in range(4)]
         },
+        "up": {
+            "walk": [get_frame(sheet, c, 3, scale) for c in range(4)],
+            "run":  [get_frame(sheet, c, 3, scale) for c in range(4)]
+        }
     }
 
-P1_FRAMES = build_frames(Y_WALK, Y_RUN, scale=40)
+sheet1 = pygame.image.load("assets/imagens/spritesheets/spritesheet.png").convert_alpha()
+sheet2 = pygame.image.load("assets/imagens/spritesheets/spritesheet2.png").convert_alpha()
+
+P1_FRAMES = build_frames(sheet1, 40)
+P2_FRAMES = build_frames(sheet2, 40)
 
 def _tint(frames: dict, rgba_add: tuple) -> dict:
     """Aplica tinte aditivo sobre todos os frames de um dicionário."""
@@ -171,11 +179,10 @@ def _tint(frames: dict, rgba_add: tuple) -> dict:
             result[d][m] = tinted
     return result
 
-P2_FRAMES = _tint(build_frames(Y_WALK, Y_RUN, scale=40), (0, 60, 0, 0))
 
 # Frames do morcego (visíveis apenas em debug/eco)
 # Bat brown row: y ≈ 1040, CELL=128 -> cols 0,1,2
-BAT_FRAMES = [get_frame(c, 1040, scale=28) for c in [0, 1, 2]]
+# BAT_FRAMES = [get_frame(c, 1040, scale=28) for c in [0, 1, 2]]
 
 # ═══════════════════════════════════════════════════════════════════
 # 4. CLASSE Jogador
@@ -333,58 +340,58 @@ class Jogador:
 #  · Slots de som comentados – adicione os caminhos quando tiver
 #    os arquivos de áudio
 # ═══════════════════════════════════════════════════════════════════
-class Morcego:
-    SPEED         = 1.1
-    DETECT_RANGE  = 280   # px – raio de detecção do jogador
-    SOUND_CD_MIN  = 1500  # ms mínimos entre sons
-    SOUND_CD_MAX  = 4500  # ms máximos entre sons
+# class Morcego:
+#     SPEED         = 1.1
+#     DETECT_RANGE  = 280   # px – raio de detecção do jogador
+#     SOUND_CD_MIN  = 1500  # ms mínimos entre sons
+#     SOUND_CD_MAX  = 4500  # ms máximos entre sons
 
-    def __init__(self, x, y):
-        self.rect      = pygame.Rect(x, y, 24, 24)
-        self.vx        = random.choice([-1, 1]) * self.SPEED
-        self.vy        = random.choice([-1, 1]) * self.SPEED
-        self.anim_t    = 0
-        self.anim_f    = 0
-        self.snd_timer = pygame.time.get_ticks() + random.randint(
-            self.SOUND_CD_MIN, self.SOUND_CD_MAX)
+#     def __init__(self, x, y):
+#         self.rect      = pygame.Rect(x, y, 24, 24)
+#         self.vx        = random.choice([-1, 1]) * self.SPEED
+#         self.vy        = random.choice([-1, 1]) * self.SPEED
+#         self.anim_t    = 0
+#         self.anim_f    = 0
+#         self.snd_timer = pygame.time.get_ticks() + random.randint(
+#             self.SOUND_CD_MIN, self.SOUND_CD_MAX)
 
-    def update(self, dt: int, paredes: list, jogadores: list):
-        """Move o morcego; persegue jogadores próximos."""
-        # ── IA: perseguição ───────────────────────────────────────
-        ativos = [j for j in jogadores if j.active]
-        if ativos:
-            alvo = min(ativos, key=lambda j: math.dist(
-                self.rect.center, j.rect.center))
-            dist = math.dist(self.rect.center, alvo.rect.center)
-            if dist < self.DETECT_RANGE:
-                dx = alvo.rect.centerx - self.rect.centerx
-                dy = alvo.rect.centery - self.rect.centery
-                n  = max(dist, 0.1)
-                self.vx = dx / n * self.SPEED
-                self.vy = dy / n * self.SPEED
+#     def update(self, dt: int, paredes: list, jogadores: list):
+#         """Move o morcego; persegue jogadores próximos."""
+#         # ── IA: perseguição ───────────────────────────────────────
+#         ativos = [j for j in jogadores if j.active]
+#         if ativos:
+#             alvo = min(ativos, key=lambda j: math.dist(
+#                 self.rect.center, j.rect.center))
+#             dist = math.dist(self.rect.center, alvo.rect.center)
+#             if dist < self.DETECT_RANGE:
+#                 dx = alvo.rect.centerx - self.rect.centerx
+#                 dy = alvo.rect.centery - self.rect.centery
+#                 n  = max(dist, 0.1)
+#                 self.vx = dx / n * self.SPEED
+#                 self.vy = dy / n * self.SPEED
 
-        # ── Movimento com colisão ──────────────────────────────────
-        old_x = self.rect.x
-        self.rect.x += self.vx
-        for p in paredes:
-            if self.rect.colliderect(p):
-                self.rect.x = old_x
-                self.vx = -self.vx
-                break
+#         # ── Movimento com colisão ──────────────────────────────────
+#         old_x = self.rect.x
+#         self.rect.x += self.vx
+#         for p in paredes:
+#             if self.rect.colliderect(p):
+#                 self.rect.x = old_x
+#                 self.vx = -self.vx
+#                 break
 
-        old_y = self.rect.y
-        self.rect.y += self.vy
-        for p in paredes:
-            if self.rect.colliderect(p):
-                self.rect.y = old_y
-                self.vy = -self.vy
-                break
+#         old_y = self.rect.y
+#         self.rect.y += self.vy
+#         for p in paredes:
+#             if self.rect.colliderect(p):
+#                 self.rect.y = old_y
+#                 self.vy = -self.vy
+#                 break
 
-        # ── Animação ───────────────────────────────────────────────
-        self.anim_t += dt
-        if self.anim_t >= 100:
-            self.anim_t = 0
-            self.anim_f = (self.anim_f + 1) % len(BAT_FRAMES)
+#         # ── Animação ───────────────────────────────────────────────
+#         self.anim_t += dt
+#         if self.anim_t >= 100:
+#             self.anim_t = 0
+#             self.anim_f = (self.anim_f + 1) % len(BAT_FRAMES)
 
         # ── Som (descomente quando tiver os arquivos) ──────────────
         # agora = pygame.time.get_ticks()
@@ -810,10 +817,10 @@ p2.active = False
 
 jogadores = [p1, p2]
 
-morcegos = []
-for _ in range(5):
-    pos = _spawn_longe(excluir=[p1_pos, p2_pos])
-    morcegos.append(Morcego(pos[0], pos[1]))
+# morcegos = []
+# for _ in range(5):
+#     pos = _spawn_longe(excluir=[p1_pos, p2_pos])
+#     morcegos.append(Morcego(pos[0], pos[1]))
 
 ondas: list[Onda] = []
 ECO_CD   = 1500   
@@ -888,8 +895,8 @@ while True:
         mode_p1 = p1.update(dt, paredes)
         mode_p2 = p2.update(dt, paredes) if p2.active else "walk"
 
-        for m in morcegos:
-            m.update(dt, paredes, jogadores)
+        # for m in morcegos:
+        #     m.update(dt, paredes, jogadores)
 
         # Ondas ------------------------------------------!!!!!!!!!!
         for o in ondas[:]:
