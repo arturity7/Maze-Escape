@@ -32,7 +32,7 @@ pygame.mixer.init()
 WIDTH, HEIGHT = 1200, 600
 FPS    = 60
 TITULO = "Maze Escape"
-TILE   = 64          
+TILE   = 50          
 
 C_BG        = (8,  8,  14)   # Fundo do jogo (escuro)
 C_WALL_HI   = (200, 240, 255) # Linha de parede iluminada (branco-azul)
@@ -412,7 +412,7 @@ class Jogador:
 # ═══════════════════════════════════════════════════════════════════
 class Onda:
     SPEED   = 5
-    MAX_R   = 150    # ← radius máximo
+    MAX_R   = 90    # ← radius máximo
     PART_N  = 3      # partículas por frame
 
     def __init__(self, cx, cy):
@@ -447,6 +447,8 @@ class Onda:
                 self.parts.remove(p)
 
     def reveal(self, wall_vis, segs_enum):
+        global exit_vis
+
         for idx, (p1, p2) in segs_enum:
 
             mx = (p1[0] + p2[0]) * 0.5
@@ -454,11 +456,20 @@ class Onda:
 
             d = math.dist((self.cx, self.cy), (mx, my))
 
-            if d > 220:
+            if d > 120:
                 continue
 
             if abs(d - self.r) < 8:
                 wall_vis[idx] = 200
+
+        # Revela a saída
+        ex = EXIT_RECT.centerx
+        ey = EXIT_RECT.centery
+
+        d_exit = math.dist((self.cx, self.cy), (ex, ey))
+
+        if abs(d_exit - self.r) < 15:
+            exit_vis = 255
 
     def draw(self, surf: pygame.Surface, cam: tuple, brightness: float = 1.0):
         if not self.ativa and not self.parts:
@@ -499,25 +510,30 @@ class Onda:
 #  wall_visibility mapeia  idx -> alpha  para o efeito de eco.
 # ═══════════════════════════════════════════════════════════════════
 MAPA_LINHAS = [
-    "1111111111111111111",
-    "1000000100000010001",
-    "1011101110111011101",
-    "1010001000001010001",
-    "1010111011101110111",
-    "1000100010000000001",
-    "1110101110101011011",
-    "1000100000101010001",
-    "1011011101101010111",
-    "1000000001001000001",
-    "1101110101001110101",
-    "1001000101000010101",
-    "1011011101111010001",
-    "1010000001000011101",
-    "1010111011011010001",
-    "1000001010000010001",
-    "1011101110111011011",
-    "1000000000000000001",
-    "1111111111111111111",
+    "1111111111111111111111111111",
+    "1S00011111100000001110001111",
+    "1S11011000001111100001000111",
+    "1011011011101100001101110011",
+    "1010000011100110111101110111",
+    "1010111011110110001000000111",
+    "1000100000010111000011011111",
+    "1110111111110000111110000001",
+    "1000000000000010000001110101",
+    "1011111111001011111101000101",
+    "1010000001010101000100010101",
+    "1010110111010001010111110101",
+    "1010100111010111010111110101",
+    "1000101100000001010100000111",
+    "1110101101101100010110111111",
+    "1110001101100111110000011111",
+    "1110101101101100110111000001",
+    "1110000001001110110111001111",
+    "1101110110101100000000011011",
+    "1100110000101110111110110011",
+    "1101001110101110011100000111",
+    "1100000000101100011110111001",
+    "1101111110001101111110000011",
+    "1111111111111111111111111111",
 ]
 mapa       = [list(ln) for ln in MAPA_LINHAS]
 MAPA_ROWS  = len(mapa)
@@ -525,6 +541,7 @@ MAPA_COLS  = len(mapa[0])
 MAPA_PX_W  = MAPA_COLS * TILE
 MAPA_PX_H  = MAPA_ROWS * TILE
 
+wall_vis: dict = {}
 
 # A saída fica na última célula livre antes da borda direita, na penúltima linha
 EXIT_TILE_X = MAPA_COLS - 2   # coluna 17
@@ -558,23 +575,26 @@ def _gerar_segmentos(mapa):
 wall_segments = _gerar_segmentos(mapa)
 wall_segs_e   = list(enumerate(wall_segments))  
 wall_vis: dict = {}   
+exit_vis = 0
 
-
-def _spawns_livres():
+def _spawns_start_zone():
     return [
         (x*TILE + TILE//2 - 15, y*TILE + TILE//2 - 15)
         for y, ln in enumerate(mapa)
         for x, t in enumerate(ln)
-        if t == "0" and (x, y) != (EXIT_TILE_X, EXIT_TILE_Y)
+        if t == "S"
     ]
 
-def _spawn_longe(excluir=(), min_dist=120):
-    cands = _spawns_livres()
+
+def _spawn_start(excluir=(), min_dist=120):
+    cands = _spawns_start_zone()
     random.shuffle(cands)
+
     for c in cands:
         if all(math.dist(c, e) >= min_dist for e in excluir):
             return c
-    return cands[0]
+
+    return cands[0] if cands else (TILE, TILE)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -785,34 +805,41 @@ def tela_comandos():
 volume_music, brightness = tela_start()
 tela_comandos()
 
-p1_pos = _spawn_longe()
-p2_pos = _spawn_longe(excluir=[p1_pos])
+p1_pos = _spawn_start()
+
+p2_pos = _spawn_start(excluir=[p1_pos])
+
+if p2_pos == p1_pos:
+    cands = _spawns_start_zone()
+    p2_pos = next((c for c in cands if c != p1_pos), p1_pos)
+
 
 p1 = Jogador(p1_pos[0], p1_pos[1],
-    frames   = P1_FRAMES,
-    controls = {
-        "up":     pygame.K_w,
-        "down":   pygame.K_s,
-        "left":   pygame.K_a,
-        "right":  pygame.K_d,
-        "run":    pygame.K_LSHIFT,
+    frames=P1_FRAMES,
+    controls={
+        "up": pygame.K_w,
+        "down": pygame.K_s,
+        "left": pygame.K_a,
+        "right": pygame.K_d,
+        "run": pygame.K_LSHIFT,
         "sprint": pygame.K_q,
     },
-    glow_color = (100, 180, 255),
+    glow_color=(100, 180, 255),
 )
 
 p2 = Jogador(p2_pos[0], p2_pos[1],
-    frames   = P2_FRAMES,
-    controls = {
-        "up":     pygame.K_UP,
-        "down":   pygame.K_DOWN,
-        "left":   pygame.K_LEFT,
-        "right":  pygame.K_RIGHT,
-        "run":    pygame.K_RSHIFT,
+    frames=P2_FRAMES,
+    controls={
+        "up": pygame.K_UP,
+        "down": pygame.K_DOWN,
+        "left": pygame.K_LEFT,
+        "right": pygame.K_RIGHT,
+        "run": pygame.K_RSHIFT,
         "sprint": pygame.K_KP0,
     },
-    glow_color = (80, 255, 100),
+    glow_color=(80, 255, 100),
 )
+
 p2.active = False
 
 jogadores = [p1, p2]
@@ -869,7 +896,7 @@ while True:
 
             if ev.key == pygame.K_9 and not p2.active:
                 p2.active = True
-                npos = _spawn_longe(excluir=[(p1.rect.x, p1.rect.y)])
+                npos = _spawn_start(excluir=[(p1.rect.x, p1.rect.y)])
                 p2.rect.topleft = npos
 
             if ev.key == pygame.K_e and p1.active:
@@ -910,6 +937,8 @@ while True:
             wall_vis[idx] -= 2
             if wall_vis[idx] <= 0:
                 del wall_vis[idx]
+        if exit_vis > 0:
+            exit_vis -= 2
 
         cam = _camera(jogadores, sw, sh)
 
@@ -928,17 +957,32 @@ while True:
     for o in ondas:
         o.draw(screen, cam, brightness)
 
-    ex_s = (EXIT_RECT.x - cam[0], EXIT_RECT.y - cam[1])
-    pulse = 0.5 + 0.5 * math.sin(agora * 0.003)
-    exit_alpha = int(60 + 80 * pulse)
-    exit_surf = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
-    exit_surf.fill((0, 255, 100, exit_alpha))
-    screen.blit(exit_surf, ex_s)
-    pygame.draw.rect(screen, C_EXIT,
-                     pygame.Rect(ex_s[0], ex_s[1], TILE, TILE), 2)
-    ex_lbl = FONT_TINY.render("SAÍDA", True, C_EXIT)
-    screen.blit(ex_lbl, (ex_s[0] + TILE//2 - ex_lbl.get_width()//2,
-                          ex_s[1] + TILE//2 - ex_lbl.get_height()//2))
+    if exit_vis > 0:
+        ex_s = (EXIT_RECT.x - cam[0], EXIT_RECT.y - cam[1])
+
+        pulse = 0.5 + 0.5 * math.sin(agora * 0.003)
+        alpha = int(exit_vis * pulse)
+
+        exit_surf = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+        exit_surf.fill((0, 255, 100, alpha))
+        screen.blit(exit_surf, ex_s)
+
+        pygame.draw.rect(
+            screen,
+            (0, 255, 100, alpha),
+            pygame.Rect(ex_s[0], ex_s[1], TILE, TILE),
+            2
+        )
+
+        lbl = FONT_TINY.render("SAÍDA", True, (0, 255, 100))
+        lbl.set_alpha(alpha)
+        screen.blit(
+            lbl,
+            (
+                ex_s[0] + TILE//2 - lbl.get_width()//2,
+                ex_s[1] + TILE//2 - lbl.get_height()//2
+            )
+        )
 
     for idx, (pt1, pt2) in wall_segs_e:
         if idx not in wall_vis:
