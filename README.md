@@ -9,6 +9,7 @@ Este repositório é um template para os grupos da disciplina. A proposta é com
 - Arthur Gabriel
 - Erick Calixto
 - Crispim Bruno
+- Lukas Nathan
 
 
 ## Estrutura do projeto
