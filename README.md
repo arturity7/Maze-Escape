@@ -22,13 +22,13 @@ Um labirinto completamente às escuras. Sua única arma é o som.
 A ideia é simples de explicar e difícil de dominar: você está preso em um labirinto onde **as paredes são invisíveis**. A única forma de "ver" o caminho é emitindo um pulso de **eco-localização** — uma onda sonora que se expande pelo mapa e revela, por alguns instantes, os trechos de parede e a saída que ela atravessa. Memorize o layout, ande no escuro, ecoe de novo, repita — até encontrar a saída.
 
 <p align="center">
-  <img src="docs/screenshots/menu-inicial.png" alt="Menu inicial do Maze Escape" width="700">
+  <img width="1200" height="630" alt="tela" src="https://github.com/user-attachments/assets/ddf4c60c-a7ef-4984-b53e-a23fa0b58fbf" />
   <br>
   <em>Menu inicial — ajuste de volume, brilho e acesso rápido ao jogo</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/gameplay-ecolocalizacao.png" alt="Gameplay mostrando o pulso de eco-localização revelando as paredes" width="700">
+  <img width="1200" height="630" alt="jogo" src="https://github.com/user-attachments/assets/9fd676fe-25d2-4e7a-b327-c8e08b17e6ed" />
   <br>
   <em>Em jogo — o pulso de eco-localização "iluminando" as paredes próximas</em>
 </p>
