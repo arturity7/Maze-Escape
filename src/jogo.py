@@ -8,7 +8,7 @@
 ║  2. CONSTANTES & CONFIG     linha ~60                             ║
 ║  3. SPRITESHEET             linha ~110   get_frame(), build_frames║
 ║  4. CLASSE Jogador          linha ~180   update(), draw()         ║
-║  5. CLASSE Morcego          linha ~310   inimigo invisível        ║
+║  5. CLASSE Inimigo          linha ~310   persegue por 4s          ║
 ║  6. CLASSE Onda             linha ~390   eco-localização          ║
 ║  7. MAPA & PAREDES          linha ~450   segmentos de linha       ║
 ║  8. TELA DE START           linha ~510   menu principal           ║
@@ -32,15 +32,15 @@ pygame.mixer.init()
 WIDTH, HEIGHT = 1200, 600
 FPS    = 60
 TITULO = "Maze Escape"
-TILE   = 50          
+TILE   = 50
 
-C_BG        = (8,  8,  14)   # Fundo do jogo (escuro)
-C_WALL_HI   = (200, 240, 255) # Linha de parede iluminada (branco-azul)
-C_WALL_LO   = (60, 120, 180)  # Linha de parede apagando
-C_EXIT      = (0, 255, 120)   # Cor da saída
-C_HUD       = (80, 200, 255)  # Texto HUD
-C_MENU_BG   = (5, 5, 20)      # Fundo do menu
-C_ACCENT    = (0, 180, 255)   # Destaque azul-ciano
+C_BG        = (8,  8,  14)
+C_WALL_HI   = (200, 240, 255)
+C_WALL_LO   = (60, 120, 180)
+C_EXIT      = (0, 255, 120)
+C_HUD       = (80, 200, 255)
+C_MENU_BG   = (5, 5, 20)
+C_ACCENT    = (0, 180, 255)
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption(TITULO)
@@ -55,7 +55,7 @@ FONT_SMALL = pygame.font.SysFont("monospace", 16)
 FONT_TINY  = pygame.font.SysFont("monospace", 13)
 
 # ───── Áudio ──────────────────────────────────────────────────────
-_base = os.path.dirname(__file__)
+_base = os.path.dirname(os.path.abspath(__file__))
 
 def _load_music(path):
     try:
@@ -65,7 +65,7 @@ def _load_music(path):
         return False
 
 _load_music(os.path.join(_base, "../assets/sons/soundtrack.mp3"))
-volume_music = 0.15         # 0.0 – 1.0  (controlado pelo menu)
+volume_music = 0.15
 pygame.mixer.music.set_volume(volume_music)
 pygame.mixer.music.play(-1, fade_ms=3000)
 
@@ -80,127 +80,76 @@ try:
 except:
     pass
 
-# ── Sons de morcego (deixados em aberto) ──────────────────────────
-# SOM_BAT_FLAP    = pygame.mixer.Sound("assets/sons/bat_flap.ogg")
-# SOM_BAT_SCREECH = pygame.mixer.Sound("assets/sons/bat_screech.ogg")
-# SOM_BAT_FLAP.set_volume(0.15)
-# SOM_BAT_SCREECH.set_volume(0.2)
-
-# ── Background (deixado em aberto) ────────────────────────────────
-# BACKGROUND = pygame.image.load("assets/imagens/background.png").convert()
-# BACKGROUND = pygame.transform.scale(BACKGROUND, (WIDTH, HEIGHT))
-BACKGROUND = None   # <- substitua None pela variável acima
+BACKGROUND = None
 
 # ═══════════════════════════════════════════════════════════════════
 # 3. SPRITESHEET
-#
-#  Layout confirmado (cada célula = 128 × 256 px):
-#
-#  ROW walk  (y=88):
-#   DOWN  idle/walk : cols 0, 1
-#   UP    idle/walk : cols 2, 3
-#   LEFT  walk      : cols 9, 10, 11, 12
-#   RIGHT walk      : cols 16, 17, 18, 19
-#
-#  ROW run   (y=344):
-#   DOWN  run       : cols 5, 6
-#   UP    run       : cols 0, 1   (row run)
-#   LEFT  run       : cols 11, 12, 13, 14
-#   RIGHT run       : cols 16, 17, 18, 19
 # ═══════════════════════════════════════════════════════════════════
-_base = os.path.dirname(os.path.abspath(__file__))
-
 ASSETS = os.path.join(_base, "..", "assets", "imagens", "spritesheets")
 
-P1_PATH = os.path.join(ASSETS, "spritesheet.png")
-P2_PATH = os.path.join(ASSETS, "spritesheet2.png")
+P1_PATH    = os.path.join(ASSETS, "spritesheet.png")
+P2_PATH    = os.path.join(ASSETS, "spritesheet2.png")
+ENEMY_PATH = os.path.join(ASSETS, "../snorlax.png")
+
+enemy_sheet = pygame.image.load(ENEMY_PATH).convert_alpha()
+
+def build_enemy_frames(sheet, scale=40):
+    """
+    Spritesheet 3×4: 4 linhas (down, left, right, up), 3 colunas por linha.
+    """
+    frames = {}
+    dirs = ["down", "left", "right", "up"]
+    cell_w = sheet.get_width()  // 3
+    cell_h = sheet.get_height() // 4
+
+    for row, direction in enumerate(dirs):
+        frames[direction] = []
+        for col in range(3):
+            src   = pygame.Rect(col * cell_w, row * cell_h, cell_w, cell_h)
+            frame = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
+            frame.blit(sheet, (0, 0), src)
+            frame = pygame.transform.scale(frame, (scale, scale))
+            frames[direction].append(frame)
+
+    return frames
+
+ENEMY_FRAMES = build_enemy_frames(enemy_sheet)
 
 sheet1 = pygame.image.load(P1_PATH).convert_alpha()
 sheet2 = pygame.image.load(P2_PATH).convert_alpha()
 
-ROWS = 4
-COLS = 4
-
 def get_frame(sheet, col, row, scale=40):
-    cell_w = sheet.get_width() // 4
+    cell_w = sheet.get_width()  // 4
     cell_h = sheet.get_height() // 4
-
-    src = pygame.Rect(
-        col * cell_w,
-        row * cell_h,
-        cell_w,
-        cell_h
-    )
-
-    frame = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
+    src    = pygame.Rect(col * cell_w, row * cell_h, cell_w, cell_h)
+    frame  = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
     frame.blit(sheet, (0, 0), src)
-
     return pygame.transform.scale(frame, (scale, scale))
 
 def build_frames(sheet, scale=40):
     return {
-        "down": {
-            "walk": [get_frame(sheet, c, 0, scale) for c in range(4)],
-            "run":  [get_frame(sheet, c, 0, scale) for c in range(4)]
-        },
-        "left": {
-            "walk": [get_frame(sheet, c, 1, scale) for c in range(4)],
-            "run":  [get_frame(sheet, c, 1, scale) for c in range(4)]
-        },
-        "right": {
-            "walk": [get_frame(sheet, c, 2, scale) for c in range(4)],
-            "run":  [get_frame(sheet, c, 2, scale) for c in range(4)]
-        },
-        "up": {
-            "walk": [get_frame(sheet, c, 3, scale) for c in range(4)],
-            "run":  [get_frame(sheet, c, 3, scale) for c in range(4)]
-        }
+        "down":  {"walk": [get_frame(sheet, c, 0, scale) for c in range(4)],
+                  "run":  [get_frame(sheet, c, 0, scale) for c in range(4)]},
+        "left":  {"walk": [get_frame(sheet, c, 1, scale) for c in range(4)],
+                  "run":  [get_frame(sheet, c, 1, scale) for c in range(4)]},
+        "right": {"walk": [get_frame(sheet, c, 2, scale) for c in range(4)],
+                  "run":  [get_frame(sheet, c, 2, scale) for c in range(4)]},
+        "up":    {"walk": [get_frame(sheet, c, 3, scale) for c in range(4)],
+                  "run":  [get_frame(sheet, c, 3, scale) for c in range(4)]},
     }
-
-sheet1 = pygame.image.load("assets/imagens/spritesheets/spritesheet.png").convert_alpha()
-sheet2 = pygame.image.load("assets/imagens/spritesheets/spritesheet2.png").convert_alpha()
 
 P1_FRAMES = build_frames(sheet1, 40)
 P2_FRAMES = build_frames(sheet2, 40)
 
-def _tint(frames: dict, rgba_add: tuple) -> dict:
-    """Aplica tinte aditivo sobre todos os frames de um dicionário."""
-    result = {}
-    for d, modes in frames.items():
-        result[d] = {}
-        for m, lst in modes.items():
-            tinted = []
-            for s in lst:
-                ts = s.copy()
-                overlay = pygame.Surface(ts.get_size(), pygame.SRCALPHA)
-                overlay.fill(rgba_add)
-                ts.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-                tinted.append(ts)
-            result[d][m] = tinted
-    return result
-
-
-# Frames do morcego (visíveis apenas em debug/eco)
-# Bat brown row: y ≈ 1040, CELL=128 -> cols 0,1,2
-# BAT_FRAMES = [get_frame(c, 1040, scale=28) for c in [0, 1, 2]]
-
 # ═══════════════════════════════════════════════════════════════════
 # 4. CLASSE Jogador
-#
-#  Responsabilidades:
-#  · Movimento com WASD / setas
-#  · Colisão com paredes (eixo X separado do Y)
-#  · Três velocidades: walk / run (Shift) / sprint (Q ou 0)
-#  · Sprint: dura 400 ms, tem cooldown de 2 s, deixa rastro luminoso
-#    e faz o sprite piscar (blink)
-#  · Animação por direção + modo (walk/run)
 # ═══════════════════════════════════════════════════════════════════
 class Jogador:
     SPEED_WALK   = 3
     SPEED_RUN    = 5
     SPEED_SPRINT = 8
-    SPRINT_DUR   = 400     # ms que o sprint dura
-    SPRINT_CD    = 2000    # ms de cooldown após sprint
+    SPRINT_DUR   = 400
+    SPRINT_CD    = 2000
 
     def __init__(self, x, y, frames, controls, glow_color=(100, 180, 255)):
         self.rect      = pygame.Rect(x, y, 30, 30)
@@ -209,23 +158,18 @@ class Jogador:
         self.controls  = controls
         self.glow      = glow_color
 
-        self.anim_t    = 0       # acumulador de tempo (ms)
-        self.anim_f    = 0       # índice do frame atual
-        self.mode      = "walk"  # "walk" ou "run"
+        self.anim_t   = 0
+        self.anim_f   = 0
+        self.mode     = "walk"
 
-        self.sprinting     = False
-        self.sprint_start  = -9999
-        self.sprint_last   = -9999
-        self.trail: list   = []  # partículas do rastro
+        self.sprinting    = False
+        self.sprint_start = -9999
+        self.sprint_last  = -9999
+        self.trail: list  = []
 
         self.active = True
 
     def update(self, dt: int, paredes: list) -> str:
-        """
-        Chama a cada frame. Retorna o modo atual ("walk"/"run").
-        dt      : delta-time em ms
-        paredes : lista de pygame.Rect das paredes
-        """
         keys  = pygame.key.get_pressed()
         c     = self.controls
         agora = pygame.time.get_ticks()
@@ -240,13 +184,12 @@ class Jogador:
             if agora - self.sprint_start >= self.SPRINT_DUR:
                 self.sprinting = False
             else:
-                # Gera partículas do rastro
                 if random.random() < 0.35:
                     self.trail.append({
-                        "x":    self.rect.centerx + random.randint(-3, 3),
-                        "y":    self.rect.centery + random.randint(-3, 3),
-                        "a":    180,    # alpha inicial
-                        "r":    random.randint(3, 7),  # raio
+                        "x": self.rect.centerx + random.randint(-3, 3),
+                        "y": self.rect.centery + random.randint(-3, 3),
+                        "a": 180,
+                        "r": random.randint(3, 7),
                     })
 
         for p in self.trail[:]:
@@ -255,13 +198,13 @@ class Jogador:
                 self.trail.remove(p)
 
         if self.sprinting:
-            speed = self.SPEED_SPRINT
+            speed     = self.SPEED_SPRINT
             self.mode = "run"
         elif keys[c["run"]]:
-            speed = self.SPEED_RUN
+            speed     = self.SPEED_RUN
             self.mode = "run"
         else:
-            speed = self.SPEED_WALK
+            speed     = self.SPEED_WALK
             self.mode = "walk"
 
         dx, dy = 0, 0
@@ -285,24 +228,18 @@ class Jogador:
                 self.rect.y = old_y
                 break
 
-        # Só avança o frame quando está se movendo
         if moved:
             self.anim_t += dt
-            if self.anim_t >= 120:   # troca de frame a cada 120 ms
+            if self.anim_t >= 120:
                 self.anim_t = 0
-                flist = self.frames[self.direction][self.mode]
+                flist       = self.frames[self.direction][self.mode]
                 self.anim_f = (self.anim_f + 1) % len(flist)
         else:
-            self.anim_f = 0          # volta ao frame parado
+            self.anim_f = 0
 
         return self.mode
 
     def draw(self, surf: pygame.Surface, cam: tuple, brightness: float = 1.0):
-        """
-        Desenha rastro + sprite na posição de tela.
-        cam        : (cam_x, cam_y) offset da câmera
-        brightness : 0.0–1.0 (ajustado pelo slider do menu)
-        """
         agora  = pygame.time.get_ticks()
         sx     = self.rect.x - cam[0]
         sy     = self.rect.y - cam[1]
@@ -314,11 +251,10 @@ class Jogador:
             glow_surf = pygame.Surface((r*4, r*4), pygame.SRCALPHA)
             pygame.draw.circle(glow_surf, (glow_r, glow_g, glow_b, a),
                                (r*2, r*2), r*2)
-            surf.blit(glow_surf,
-                      (p["x"] - cam[0] - r*2, p["y"] - cam[1] - r*2))
+            surf.blit(glow_surf, (p["x"] - cam[0] - r*2, p["y"] - cam[1] - r*2))
 
-        flist  = self.frames[self.direction][self.mode]
-        frame  = flist[min(self.anim_f, len(flist)-1)]
+        flist = self.frames[self.direction][self.mode]
+        frame = flist[min(self.anim_f, len(flist)-1)]
 
         if self.sprinting and (agora // 55) % 2 == 0:
             bright = frame.copy()
@@ -331,99 +267,118 @@ class Jogador:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 5. CLASSE Morcego
+# 5. CLASSE Inimigo
 #
-#  · Invisível durante o jogo (self.visible = False por design)
-#  · Patrulha o labirinto e persegue o jogador se estiver próximo
-#  · Anima frames mesmo invisível (pronto para debug ou se quiser
-#    revelar com eco no futuro)
-#  · Slots de som comentados – adicione os caminhos quando tiver
-#    os arquivos de áudio
+#  · Fica parado até ser "ouvido" (onda de eco ou sprint do jogador)
+#  · Ao ouvir: persegue o jogador mais próximo por 4 segundos
+#  · O timer NÃO acumula — cada novo aviso reseta para 4 s
+#  · Colisão com jogador = game over (hitkill)
+#  · Spritesheet 3×4: linhas = down/left/right/up, colunas = 3 frames
 # ═══════════════════════════════════════════════════════════════════
-# class Morcego:
-#     SPEED         = 1.1
-#     DETECT_RANGE  = 280   # px – raio de detecção do jogador
-#     SOUND_CD_MIN  = 1500  # ms mínimos entre sons
-#     SOUND_CD_MAX  = 4500  # ms máximos entre sons
+class Inimigo:
+    SPEED     = 1.2
+    AGRO_TIME = 2000   # ms de perseguição
 
-#     def __init__(self, x, y):
-#         self.rect      = pygame.Rect(x, y, 24, 24)
-#         self.vx        = random.choice([-1, 1]) * self.SPEED
-#         self.vy        = random.choice([-1, 1]) * self.SPEED
-#         self.anim_t    = 0
-#         self.anim_f    = 0
-#         self.snd_timer = pygame.time.get_ticks() + random.randint(
-#             self.SOUND_CD_MIN, self.SOUND_CD_MAX)
+    def __init__(self, x, y):
+        self.rect      = pygame.Rect(x, y, 32, 32)
+        self.frames    = ENEMY_FRAMES
+        self.direction = "down"
+        self.anim_frame = 0
+        self.anim_timer = 0
+        self.agro_until = 0   # timestamp até onde persegue
+        self.alvo       = None
 
-#     def update(self, dt: int, paredes: list, jogadores: list):
-#         """Move o morcego; persegue jogadores próximos."""
-#         # ── IA: perseguição ───────────────────────────────────────
-#         ativos = [j for j in jogadores if j.active]
-#         if ativos:
-#             alvo = min(ativos, key=lambda j: math.dist(
-#                 self.rect.center, j.rect.center))
-#             dist = math.dist(self.rect.center, alvo.rect.center)
-#             if dist < self.DETECT_RANGE:
-#                 dx = alvo.rect.centerx - self.rect.centerx
-#                 dy = alvo.rect.centery - self.rect.centery
-#                 n  = max(dist, 0.1)
-#                 self.vx = dx / n * self.SPEED
-#                 self.vy = dy / n * self.SPEED
+    # ── Ativa / reseta o timer de perseguição ──────────────────────
+    def ouvir(self, jogador):
+        """
+        Chamado quando a onda toca o inimigo OU quando um jogador
+        usa sprint próximo. Sempre reseta o timer para 4 s — não acumula.
+        """
+        agora           = pygame.time.get_ticks()
+        self.agro_until = agora + self.AGRO_TIME
+        self.alvo       = jogador
 
-#         # ── Movimento com colisão ──────────────────────────────────
-#         old_x = self.rect.x
-#         self.rect.x += self.vx
-#         for p in paredes:
-#             if self.rect.colliderect(p):
-#                 self.rect.x = old_x
-#                 self.vx = -self.vx
-#                 break
+    def ativo(self) -> bool:
+        return pygame.time.get_ticks() < self.agro_until
 
-#         old_y = self.rect.y
-#         self.rect.y += self.vy
-#         for p in paredes:
-#             if self.rect.colliderect(p):
-#                 self.rect.y = old_y
-#                 self.vy = -self.vy
-#                 break
+    # ── Atualização por frame ───────────────────────────────────────
+    def update(self, dt: int, paredes: list, jogadores: list):
+        if not self.ativo():
+            # parado — apenas anima idle (frame 0)
+            self.anim_frame = 0
+            return
 
-#         # ── Animação ───────────────────────────────────────────────
-#         self.anim_t += dt
-#         if self.anim_t >= 100:
-#             self.anim_t = 0
-#             self.anim_f = (self.anim_f + 1) % len(BAT_FRAMES)
+        ativos = [j for j in jogadores if j.active]
+        if not ativos:
+            return
 
-        # ── Som (descomente quando tiver os arquivos) ──────────────
-        # agora = pygame.time.get_ticks()
-        # if agora >= self.snd_timer:
-        #     SOM_BAT_FLAP.play()
-        #     self.snd_timer = agora + random.randint(
-        #         self.SOUND_CD_MIN, self.SOUND_CD_MAX)
+        # Se o alvo saiu de jogo, troca para o mais próximo
+        if self.alvo not in ativos:
+            self.alvo = min(ativos,
+                            key=lambda j: math.dist(self.rect.center,
+                                                    j.rect.center))
+
+        dx = self.alvo.rect.centerx - self.rect.centerx
+        dy = self.alvo.rect.centery - self.rect.centery
+        dist = max(1, math.hypot(dx, dy))
+        vx   = dx / dist * self.SPEED
+        vy   = dy / dist * self.SPEED
+
+        # Direção visual
+        if abs(dx) > abs(dy):
+            self.direction = "right" if dx > 0 else "left"
+        else:
+            self.direction = "down" if dy > 0 else "up"
+
+        # Movimento com colisão de parede
+        old_x = self.rect.x
+        self.rect.x += vx
+        for p in paredes:
+            if self.rect.colliderect(p):
+                self.rect.x = old_x
+                break
+
+        old_y = self.rect.y
+        self.rect.y += vy
+        for p in paredes:
+            if self.rect.colliderect(p):
+                self.rect.y = old_y
+                break
+
+        # Animação
+        self.anim_timer += dt
+        if self.anim_timer >= 120:
+            self.anim_timer  = 0
+            self.anim_frame  = (self.anim_frame + 1) % 3
+
+        # Hitkill
+        for j in ativos:
+            if self.rect.colliderect(j.rect):
+                print("GAME OVER — inimigo alcançou o jogador!")
+                pygame.quit()
+                exit()
+
+    def draw(self, surf: pygame.Surface, cam: tuple):
+        frame = self.frames[self.direction][self.anim_frame]
+        surf.blit(frame, (self.rect.x - cam[0], self.rect.y - cam[1]))
 
 
 # ═══════════════════════════════════════════════════════════════════
 # 6. CLASSE Onda (eco-localização)
-#
-#  · Emitida ao pressionar E (P1) ou Enter-numpad (P2)
-#  · Expande como anel com partículas nas bordas
-#  · Ao tocar em segmentos de parede, registra-os em wall_visibility
-#    com alpha=200 (eles vão apagando a ~1.5 pts/frame)
-#  · Radius máximo reduzido para 220 px (era 350)
 # ═══════════════════════════════════════════════════════════════════
 class Onda:
-    SPEED   = 5
-    MAX_R   = 90    # ← radius máximo
-    PART_N  = 3      # partículas por frame
+    SPEED  = 5
+    MAX_R  = 90
+    PART_N = 3
 
     def __init__(self, cx, cy):
-        self.cx   = cx
-        self.cy   = cy
-        self.r    = 0
+        self.cx    = cx
+        self.cy    = cy
+        self.r     = 0
         self.ativa = True
         self.parts: list = []
 
     def update(self):
-        """Avança o radius e gera/atualiza partículas."""
         self.r += self.SPEED
         if self.r >= self.MAX_R:
             self.ativa = False
@@ -431,45 +386,55 @@ class Onda:
         for _ in range(self.PART_N):
             ang = random.uniform(0, math.tau)
             self.parts.append({
-                "x":  self.cx + math.cos(ang) * self.r,
-                "y":  self.cy + math.sin(ang) * self.r,
-                "vx": math.cos(ang) * random.uniform(0.3, 1.8),
-                "vy": math.sin(ang) * random.uniform(0.3, 1.8),
+                "x":    self.cx + math.cos(ang) * self.r,
+                "y":    self.cy + math.sin(ang) * self.r,
+                "vx":   math.cos(ang) * random.uniform(0.3, 1.8),
+                "vy":   math.sin(ang) * random.uniform(0.3, 1.8),
                 "life": random.randint(25, 70),
-                "sz":  random.uniform(1.2, 3.5),
+                "sz":   random.uniform(1.2, 3.5),
             })
 
         for p in self.parts[:]:
-            p["x"] += p["vx"]
-            p["y"] += p["vy"]
+            p["x"]    += p["vx"]
+            p["y"]    += p["vy"]
             p["life"] -= 2
             if p["life"] <= 0:
                 self.parts.remove(p)
 
-    def reveal(self, wall_vis, segs_enum):
+    def reveal(self, wall_vis: dict, segs_enum: list):
         global exit_vis
 
         for idx, (p1, p2) in segs_enum:
-
             mx = (p1[0] + p2[0]) * 0.5
             my = (p1[1] + p2[1]) * 0.5
-
-            d = math.dist((self.cx, self.cy), (mx, my))
-
+            d  = math.dist((self.cx, self.cy), (mx, my))
             if d > 120:
                 continue
-
             if abs(d - self.r) < 8:
                 wall_vis[idx] = 200
 
-        # Revela a saída
         ex = EXIT_RECT.centerx
         ey = EXIT_RECT.centery
-
         d_exit = math.dist((self.cx, self.cy), (ex, ey))
-
         if abs(d_exit - self.r) < 15:
             exit_vis = 255
+
+    def tocar_inimigos(self, inimigos: list, jogadores: list):
+        """
+        Verifica se a frente da onda toca algum inimigo.
+        Se sim, chama inimigo.ouvir() com o jogador mais próximo do inimigo.
+        """
+        ativos = [j for j in jogadores if j.active]
+        if not ativos:
+            return
+
+        for inimigo in inimigos:
+            d = math.dist((self.cx, self.cy), inimigo.rect.center)
+            if abs(d - self.r) < 16:          # tolerância de toque
+                alvo = min(ativos,
+                           key=lambda j: math.dist(inimigo.rect.center,
+                                                   j.rect.center))
+                inimigo.ouvir(alvo)
 
     def draw(self, surf: pygame.Surface, cam: tuple, brightness: float = 1.0):
         if not self.ativa and not self.parts:
@@ -485,8 +450,7 @@ class Onda:
             pygame.draw.circle(ring, (80, 210, 255, a),
                                (int(self.r+2), int(self.r+2)),
                                int(self.r), 2)
-            surf.blit(ring, (int(cx_s - self.r - 2),
-                             int(cy_s - self.r - 2)))
+            surf.blit(ring, (int(cx_s - self.r - 2), int(cy_s - self.r - 2)))
 
         for p in self.parts:
             px_s = int(p["x"] - cam[0])
@@ -494,8 +458,7 @@ class Onda:
             a    = max(0, int(220 * p["life"] / 70 * brightness))
             sz   = max(1, int(p["sz"]))
             gs   = pygame.Surface((sz*4, sz*4), pygame.SRCALPHA)
-            pygame.draw.circle(gs, (100, 230, 255, a),
-                               (sz*2, sz*2), sz*2)
+            pygame.draw.circle(gs, (100, 230, 255, a), (sz*2, sz*2), sz*2)
             pygame.draw.circle(gs, (220, 255, 255, min(255, a+60)),
                                (sz*2, sz*2), sz)
             surf.blit(gs, (px_s - sz*2, py_s - sz*2))
@@ -503,11 +466,6 @@ class Onda:
 
 # ═══════════════════════════════════════════════════════════════════
 # 7. MAPA & PAREDES
-#
-#  Mapa 19×19 – '1' = parede, '0' = caminho
-#  As paredes NÃO são blocos: são segmentos de linha (bordas das
-#  células '1') armazenados em wall_segments.
-#  wall_visibility mapeia  idx -> alpha  para o efeito de eco.
 # ═══════════════════════════════════════════════════════════════════
 MAPA_LINHAS = [
     "1111111111111111111111111111",
@@ -535,20 +493,17 @@ MAPA_LINHAS = [
     "1101111110001101111110000011",
     "1111111111111111111111111111",
 ]
-mapa       = [list(ln) for ln in MAPA_LINHAS]
-MAPA_ROWS  = len(mapa)
-MAPA_COLS  = len(mapa[0])
-MAPA_PX_W  = MAPA_COLS * TILE
-MAPA_PX_H  = MAPA_ROWS * TILE
 
-wall_vis: dict = {}
+mapa      = [list(ln) for ln in MAPA_LINHAS]
+MAPA_ROWS = len(mapa)
+MAPA_COLS = len(mapa[0])
+MAPA_PX_W = MAPA_COLS * TILE
+MAPA_PX_H = MAPA_ROWS * TILE
 
-# A saída fica na última célula livre antes da borda direita, na penúltima linha
-EXIT_TILE_X = MAPA_COLS - 2   # coluna 17
-EXIT_TILE_Y = MAPA_ROWS - 2   # linha 17
-mapa[EXIT_TILE_Y][EXIT_TILE_X] = "0"   # garante que é caminho
+EXIT_TILE_X = MAPA_COLS - 2
+EXIT_TILE_Y = MAPA_ROWS - 2
+mapa[EXIT_TILE_Y][EXIT_TILE_X] = "0"
 EXIT_RECT = pygame.Rect(EXIT_TILE_X * TILE, EXIT_TILE_Y * TILE, TILE, TILE)
-
 
 paredes = [
     pygame.Rect(x * TILE, y * TILE, TILE, TILE)
@@ -557,7 +512,6 @@ paredes = [
     if t == "1"
 ]
 
-
 def _gerar_segmentos(mapa):
     segs = []
     for y, linha in enumerate(mapa):
@@ -565,16 +519,16 @@ def _gerar_segmentos(mapa):
             if t == "1":
                 tx, ty = x * TILE, y * TILE
                 segs += [
-                    ((tx, ty), (tx+TILE, ty)),
-                    ((tx, ty+TILE), (tx+TILE, ty+TILE)),
-                    ((tx, ty), (tx, ty+TILE)),
-                    ((tx+TILE, ty), (tx+TILE, ty+TILE)),
+                    ((tx,      ty),      (tx+TILE, ty)),
+                    ((tx,      ty+TILE), (tx+TILE, ty+TILE)),
+                    ((tx,      ty),      (tx,      ty+TILE)),
+                    ((tx+TILE, ty),      (tx+TILE, ty+TILE)),
                 ]
     return segs
 
 wall_segments = _gerar_segmentos(mapa)
-wall_segs_e   = list(enumerate(wall_segments))  
-wall_vis: dict = {}   
+wall_segs_e   = list(enumerate(wall_segments))
+wall_vis: dict = {}
 exit_vis = 0
 
 def _spawns_start_zone():
@@ -585,45 +539,52 @@ def _spawns_start_zone():
         if t == "S"
     ]
 
-
 def _spawn_start(excluir=(), min_dist=120):
     cands = _spawns_start_zone()
     random.shuffle(cands)
-
     for c in cands:
         if all(math.dist(c, e) >= min_dist for e in excluir):
             return c
-
     return cands[0] if cands else (TILE, TILE)
 
 
 # ═══════════════════════════════════════════════════════════════════
 # 8. TELA DE START
-#
-#  Apresenta: título, slider de volume, slider de brilho, botão PLAY
-#  Retorna (volume_music, brightness) quando o usuário clica em PLAY.
 # ═══════════════════════════════════════════════════════════════════
+def _draw_slider(surf, x, y, w, val, label, mx, my):
+    pygame.draw.rect(surf, (30,50,70), (x, y-4, w, 8), border_radius=4)
+    fill_w = int(w * val)
+    pygame.draw.rect(surf, C_ACCENT, (x, y-4, fill_w, 8), border_radius=4)
+    tx    = x + fill_w
+    hover = abs(mx - tx) < 12 and abs(my - y) < 12
+    pygame.draw.circle(surf, (255,255,255) if hover else (180,220,255),
+                       (tx, y), 9 if hover else 7)
+    lbl = FONT_SMALL.render(label, True, (120,180,220))
+    surf.blit(lbl, (x, y - 26))
+
+def _toggle_fullscreen():
+    global fullscreen, screen
+    fullscreen = not fullscreen
+    if fullscreen:
+        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    else:
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
 def tela_start():
-    """
-    Menu principal com sliders de volume e brilho.
-    Retorna (vol: float, bri: float).
-    """
     vol = volume_music
-    bri = 1.0      # brilho: 0.0 – 1.0
-    dragging = None   # "vol" | "bri"
+    bri = 1.0
+    dragging = None
 
-    SL_X    = WIDTH//2 - 150   # x do início dos sliders
-    SL_W    = 300               # largura dos sliders
-    SL_VOL_Y = HEIGHT//2 + 20
-    SL_BRI_Y = HEIGHT//2 + 80
-    PLAY_R  = pygame.Rect(WIDTH//2 - 90, HEIGHT//2 + 150, 180, 48)
-
+    SL_X      = WIDTH//2 - 150
+    SL_W      = 300
+    SL_VOL_Y  = HEIGHT//2 + 20
+    SL_BRI_Y  = HEIGHT//2 + 80
+    PLAY_R    = pygame.Rect(WIDTH//2 - 90, HEIGHT//2 + 150, 180, 48)
 
     stars = [{"x": random.randint(0, WIDTH),
               "y": random.randint(0, HEIGHT),
               "r": random.uniform(0.5, 2),
               "sp": random.uniform(0.2, 0.8)} for _ in range(80)]
-
     title_anim = 0.0
 
     while True:
@@ -636,22 +597,18 @@ def tela_start():
                 pygame.quit(); exit()
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_F11:
                 _toggle_fullscreen()
-
             if ev.type == pygame.MOUSEBUTTONDOWN:
                 if ev.button == 1:
                     if PLAY_R.collidepoint(mx, my):
                         pygame.mixer.music.set_volume(vol)
                         return vol, bri
-                    # Clicar nos sliders
                     if SL_X <= mx <= SL_X + SL_W:
                         if abs(my - SL_VOL_Y) < 14:
                             dragging = "vol"
                         if abs(my - SL_BRI_Y) < 14:
                             dragging = "bri"
-
             if ev.type == pygame.MOUSEBUTTONUP:
                 dragging = None
-
             if ev.type == pygame.MOUSEMOTION and dragging:
                 t = max(0.0, min(1.0, (mx - SL_X) / SL_W))
                 if dragging == "vol":
@@ -660,9 +617,7 @@ def tela_start():
                 if dragging == "bri":
                     bri = t
 
-
         screen.fill(C_MENU_BG)
-
 
         for st in stars:
             st["y"] += st["sp"]
@@ -672,70 +627,41 @@ def tela_start():
             pygame.draw.circle(screen, (a//2, a, 255),
                                (int(st["x"]), int(st["y"])), int(st["r"]))
 
-
-        pulse = 0.85 + 0.15 * math.sin(title_anim * 2)
+        pulse  = 0.85 + 0.15 * math.sin(title_anim * 2)
         t_surf = FONT_BIG.render("MAZE ESCAPE", True, C_ACCENT)
         t_surf = pygame.transform.scale(t_surf,
                      (int(t_surf.get_width() * pulse),
                       int(t_surf.get_height() * pulse)))
         screen.blit(t_surf, t_surf.get_rect(center=(WIDTH//2, HEIGHT//2 - 110)))
 
-        sub = FONT_SMALL.render("eco-localização · labirinto · fuga", True, (80,140,180))
+        sub = FONT_SMALL.render("eco-localização · labirinto · fuga",
+                                True, (80,140,180))
         screen.blit(sub, sub.get_rect(center=(WIDTH//2, HEIGHT//2 - 55)))
-
 
         _draw_slider(screen, SL_X, SL_VOL_Y, SL_W, vol,
                      f"VOLUME  {int(vol*100):3d}%", mx, my)
-
-
         _draw_slider(screen, SL_X, SL_BRI_Y, SL_W, bri,
                      f"BRILHO  {int(bri*100):3d}%", mx, my)
 
-
-        hover = PLAY_R.collidepoint(mx, my)
+        hover   = PLAY_R.collidepoint(mx, my)
         col_btn = (0, 210, 100) if hover else (0, 160, 80)
         pygame.draw.rect(screen, col_btn, PLAY_R, border_radius=8)
         pygame.draw.rect(screen, (0, 255, 120), PLAY_R, 2, border_radius=8)
-        lbl = FONT_MED.render("▶  JOGAR", True, (0,0,0) if hover else (200,255,200))
+        lbl = FONT_MED.render("▶  JOGAR", True,
+                              (0,0,0) if hover else (200,255,200))
         screen.blit(lbl, lbl.get_rect(center=PLAY_R.center))
 
-        hint = FONT_TINY.render("F11 = tela cheia   |   ESC = sair", True, (50,70,90))
+        hint = FONT_TINY.render("F11 = tela cheia   |   ESC = sair",
+                                True, (50,70,90))
         screen.blit(hint, hint.get_rect(center=(WIDTH//2, HEIGHT - 20)))
 
         pygame.display.flip()
 
 
-def _draw_slider(surf, x, y, w, val, label, mx, my):
-    """Desenha um slider horizontal estilizado."""
-    pygame.draw.rect(surf, (30,50,70), (x, y-4, w, 8), border_radius=4)
-    fill_w = int(w * val)
-    pygame.draw.rect(surf, C_ACCENT, (x, y-4, fill_w, 8), border_radius=4)
-    tx = x + fill_w
-    hover = abs(mx - tx) < 12 and abs(my - y) < 12
-    pygame.draw.circle(surf, (255,255,255) if hover else (180,220,255),
-                       (tx, y), 9 if hover else 7)
-    lbl = FONT_SMALL.render(label, True, (120,180,220))
-    surf.blit(lbl, (x, y - 26))
-
-
-def _toggle_fullscreen():
-    global fullscreen, screen
-    fullscreen = not fullscreen
-    if fullscreen:
-        screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
-    else:
-        screen = pygame.display.set_mode((WIDTH, HEIGHT))
-
-
 # ═══════════════════════════════════════════════════════════════════
 # 9. TELA DE COMANDOS
-#
-#  Exibida após clicar em PLAY, antes do gameplay começar.
-#  Lista todos os controles de P1 e P2.
-#  Pressionar ENTER / SPACE / clique inicia o jogo.
 # ═══════════════════════════════════════════════════════════════════
 COMANDOS = [
-    # (ícone, descrição)
     ("── JOGADOR 1 ──", ""),
     ("W A S D",         "Mover"),
     ("Shift esq.",      "Correr (velocidade maior)"),
@@ -748,7 +674,7 @@ COMANDOS = [
     ("0 (numpad)",      "Sprint + brilho"),
     ("Enter numpad",    "Emitir eco-localização"),
     ("",                ""),
-    ("── GERAL ──", ""),
+    ("── GERAL ──",    ""),
     ("9",               "Adicionar Jogador 2"),
     ("F11",             "Tela cheia"),
     ("- / =",           "Diminuir / aumentar volume"),
@@ -757,19 +683,16 @@ COMANDOS = [
 ]
 
 def tela_comandos():
-    """Exibe os comandos. Retorna quando o usuário confirmar."""
     anim = 0.0
     while True:
-        dt   = clock.tick(FPS)
+        dt    = clock.tick(FPS)
         anim += dt * 0.001
 
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 pygame.quit(); exit()
             if ev.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
-                if getattr(ev, "key", 0) in (pygame.K_RETURN, pygame.K_SPACE,
-                                              0) or ev.type == pygame.MOUSEBUTTONDOWN:
-                    return
+                return
 
         screen.fill(C_MENU_BG)
 
@@ -777,12 +700,13 @@ def tela_comandos():
         screen.blit(t, t.get_rect(center=(WIDTH//2, 38)))
         pygame.draw.line(screen, (0,80,120), (WIDTH//4, 60), (WIDTH*3//4, 60), 1)
 
-        col_w = WIDTH // 2 - 40
-        y_off = 80
+        y_off  = 80
         line_h = 24
+        half   = len(COMANDOS) // 2 + 1
+
         for i, (key, desc) in enumerate(COMANDOS):
-            col_x = 80 if i <= len(COMANDOS)//2 else WIDTH//2 + 40
-            row_y = y_off + (i % (len(COMANDOS)//2 + 1)) * line_h
+            col_x = 80 if i < half else WIDTH//2 + 40
+            row_y = y_off + (i % half) * line_h
 
             if desc == "":
                 if key:
@@ -790,7 +714,7 @@ def tela_comandos():
                     screen.blit(surf, (col_x, row_y))
                 continue
 
-            k_surf = FONT_SMALL.render(key, True, (220, 220, 100))
+            k_surf = FONT_SMALL.render(key,  True, (220, 220, 100))
             d_surf = FONT_SMALL.render(desc, True, (160, 190, 210))
             screen.blit(k_surf, (col_x, row_y))
             screen.blit(d_surf, (col_x + 180, row_y))
@@ -802,62 +726,71 @@ def tela_comandos():
 
         pygame.display.flip()
 
+
+# ═══════════════════════════════════════════════════════════════════
+# INÍCIO — menus e criação de objetos
+# ═══════════════════════════════════════════════════════════════════
 volume_music, brightness = tela_start()
 tela_comandos()
 
 p1_pos = _spawn_start()
-
 p2_pos = _spawn_start(excluir=[p1_pos])
-
 if p2_pos == p1_pos:
-    cands = _spawns_start_zone()
+    cands  = _spawns_start_zone()
     p2_pos = next((c for c in cands if c != p1_pos), p1_pos)
 
-
-p1 = Jogador(p1_pos[0], p1_pos[1],
-    frames=P1_FRAMES,
-    controls={
-        "up": pygame.K_w,
-        "down": pygame.K_s,
-        "left": pygame.K_a,
-        "right": pygame.K_d,
-        "run": pygame.K_LSHIFT,
+p1 = Jogador(
+    p1_pos[0], p1_pos[1],
+    frames   = P1_FRAMES,
+    controls = {
+        "up":     pygame.K_w,
+        "down":   pygame.K_s,
+        "left":   pygame.K_a,
+        "right":  pygame.K_d,
+        "run":    pygame.K_LSHIFT,
         "sprint": pygame.K_q,
     },
     glow_color=(100, 180, 255),
 )
 
-p2 = Jogador(p2_pos[0], p2_pos[1],
-    frames=P2_FRAMES,
-    controls={
-        "up": pygame.K_UP,
-        "down": pygame.K_DOWN,
-        "left": pygame.K_LEFT,
-        "right": pygame.K_RIGHT,
-        "run": pygame.K_RSHIFT,
+p2 = Jogador(
+    p2_pos[0], p2_pos[1],
+    frames   = P2_FRAMES,
+    controls = {
+        "up":     pygame.K_UP,
+        "down":   pygame.K_DOWN,
+        "left":   pygame.K_LEFT,
+        "right":  pygame.K_RIGHT,
+        "run":    pygame.K_RSHIFT,
         "sprint": pygame.K_KP0,
     },
     glow_color=(80, 255, 100),
 )
-
 p2.active = False
 
 jogadores = [p1, p2]
 
-# morcegos = []
-# for _ in range(5):
-#     pos = _spawn_longe(excluir=[p1_pos, p2_pos])
-#     morcegos.append(Morcego(pos[0], pos[1]))
+# ── Spawn de inimigos em células livres ───────────────────────────
+inimigos: list[Inimigo] = []
+for _ in range(6):
+    while True:
+        x    = random.randint(1, MAPA_COLS - 2) * TILE
+        y    = random.randint(1, MAPA_ROWS - 2) * TILE
+        test = pygame.Rect(x, y, 32, 32)
+        if not any(test.colliderect(p) for p in paredes):
+            break
+    inimigos.append(Inimigo(x, y))
 
 ondas: list[Onda] = []
-ECO_CD   = 1500   
+ECO_CD   = 1500
 eco_last = {p1: -9999, p2: -9999}
 
 show_vol  = False
 vol_timer = 0
 
+SPRINT_ALERT_DIST = 200   # raio em px: sprint acorda inimigos nessa distância
+
 def _camera(jogadores, sw, sh):
-    """Centraliza entre os jogadores ativos."""
     ativos = [j for j in jogadores if j.active]
     cx = sum(j.rect.centerx for j in ativos) / len(ativos)
     cy = sum(j.rect.centery for j in ativos) / len(ativos)
@@ -866,17 +799,21 @@ def _camera(jogadores, sw, sh):
         max(0, min(cy - sh//2, MAPA_PX_H - sh)),
     )
 
-cam = (0, 0)
-
+cam        = (0, 0)
 ganhou     = False
 win_timer  = 0
-win_player = 0   # 1 ou 2
+win_player = 0
 
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. LOOP PRINCIPAL
+# ═══════════════════════════════════════════════════════════════════
 while True:
     dt    = clock.tick(FPS)
     agora = pygame.time.get_ticks()
     sw, sh = screen.get_size()
 
+    # ── Eventos ───────────────────────────────────────────────────
     for ev in pygame.event.get():
         if ev.type == pygame.QUIT:
             pygame.quit(); exit()
@@ -899,6 +836,7 @@ while True:
                 npos = _spawn_start(excluir=[(p1.rect.x, p1.rect.y)])
                 p2.rect.topleft = npos
 
+            # Eco P1
             if ev.key == pygame.K_e and p1.active:
                 if agora - eco_last[p1] >= ECO_CD:
                     eco_last[p1] = agora
@@ -906,6 +844,7 @@ while True:
                     if sons_eco:
                         random.choice(sons_eco).play()
 
+            # Eco P2
             if ev.key == pygame.K_KP_ENTER and p2.active:
                 if agora - eco_last[p2] >= ECO_CD:
                     eco_last[p2] = agora
@@ -918,21 +857,29 @@ while True:
                 subprocess.Popen([sys.executable] + sys.argv)
                 pygame.quit(); exit()
 
+    # ── Lógica ────────────────────────────────────────────────────
     if not ganhou:
-        mode_p1 = p1.update(dt, paredes)
-        mode_p2 = p2.update(dt, paredes) if p2.active else "walk"
+        p1.update(dt, paredes)
+        if p2.active:
+            p2.update(dt, paredes)
 
-        # for m in morcegos:
-        #     m.update(dt, paredes, jogadores)
+        # Sprint acorda inimigos próximos
+        for jogador in [p for p in jogadores if p.active]:
+            if jogador.sprinting:
+                for inimigo in inimigos:
+                    d = math.dist(jogador.rect.center, inimigo.rect.center)
+                    if d <= SPRINT_ALERT_DIST:
+                        inimigo.ouvir(jogador)
 
-        # Ondas ------------------------------------------!!!!!!!!!!
+        # Ondas: atualização + reveal de paredes + toque em inimigos
         for o in ondas[:]:
             o.update()
             o.reveal(wall_vis, wall_segs_e)
+            o.tocar_inimigos(inimigos, jogadores)
             if not o.ativa and not o.parts:
                 ondas.remove(o)
 
-        # Fade das paredes --------------------------------------!!!!!!!
+        # Fade das paredes
         for idx in list(wall_vis):
             wall_vis[idx] -= 2
             if wall_vis[idx] <= 0:
@@ -940,50 +887,47 @@ while True:
         if exit_vis > 0:
             exit_vis -= 2
 
+        # Atualiza inimigos
+        for inimigo in inimigos:
+            inimigo.update(dt, paredes, jogadores)
+
         cam = _camera(jogadores, sw, sh)
 
+        # Checa vitória
         for i, j in enumerate(jogadores, 1):
             if j.active and j.rect.colliderect(EXIT_RECT):
-                ganhou    = True
+                ganhou     = True
                 win_player = i
                 win_timer  = agora
                 break
 
+    # ── Renderização ──────────────────────────────────────────────
     if BACKGROUND:
         screen.blit(BACKGROUND, (0, 0))
     else:
         screen.fill(C_BG)
 
+    # Ondas
     for o in ondas:
         o.draw(screen, cam, brightness)
 
+    # Saída
     if exit_vis > 0:
-        ex_s = (EXIT_RECT.x - cam[0], EXIT_RECT.y - cam[1])
-
+        ex_s  = (EXIT_RECT.x - cam[0], EXIT_RECT.y - cam[1])
         pulse = 0.5 + 0.5 * math.sin(agora * 0.003)
         alpha = int(exit_vis * pulse)
 
         exit_surf = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
         exit_surf.fill((0, 255, 100, alpha))
         screen.blit(exit_surf, ex_s)
-
-        pygame.draw.rect(
-            screen,
-            (0, 255, 100, alpha),
-            pygame.Rect(ex_s[0], ex_s[1], TILE, TILE),
-            2
-        )
-
+        pygame.draw.rect(screen, (0, 255, 100, alpha),
+                         pygame.Rect(ex_s[0], ex_s[1], TILE, TILE), 2)
         lbl = FONT_TINY.render("SAÍDA", True, (0, 255, 100))
         lbl.set_alpha(alpha)
-        screen.blit(
-            lbl,
-            (
-                ex_s[0] + TILE//2 - lbl.get_width()//2,
-                ex_s[1] + TILE//2 - lbl.get_height()//2
-            )
-        )
+        screen.blit(lbl, (ex_s[0] + TILE//2 - lbl.get_width()//2,
+                           ex_s[1] + TILE//2 - lbl.get_height()//2))
 
+    # Paredes reveladas
     for idx, (pt1, pt2) in wall_segs_e:
         if idx not in wall_vis:
             continue
@@ -997,13 +941,18 @@ while True:
         sx2 = pt2[0] - cam[0]
         sy2 = pt2[1] - cam[1]
         pygame.draw.line(screen, (r, g, b), (sx1, sy1), (sx2, sy2), 2)
-        pygame.draw.line(screen, (200, 240, 255),
-                         (sx1, sy1), (sx2, sy2), 1)
+        pygame.draw.line(screen, (200, 240, 255), (sx1, sy1), (sx2, sy2), 1)
 
+    # Inimigos
+    for inimigo in inimigos:
+        inimigo.draw(screen, cam)
+
+    # Jogadores
     p1.draw(screen, cam, brightness)
     if p2.active:
         p2.draw(screen, cam, brightness)
 
+    # HUD volume
     if show_vol:
         if agora - vol_timer > 2500:
             show_vol = False
@@ -1015,29 +964,31 @@ while True:
                                      True, (180,220,255))
             screen.blit(v_lbl, (224, 12))
 
+    # HUD eco P1
     if p1.active:
-        cd_left = max(0, ECO_CD - (agora - eco_last[p1]))
-        bw = 70
+        cd_left  = max(0, ECO_CD - (agora - eco_last[p1]))
+        bw       = 70
         pygame.draw.rect(screen, (20,40,60), (16, sh-26, bw, 8), border_radius=4)
-        ready_w = int(bw * (1 - cd_left/ECO_CD))
+        ready_w  = int(bw * (1 - cd_left / ECO_CD))
         pygame.draw.rect(screen, C_HUD, (16, sh-26, ready_w, 8), border_radius=4)
-        eco_txt = FONT_TINY.render("ECO [E]" + (" ✓" if cd_left==0 else ""),
-                                   True, C_HUD)
+        eco_txt  = FONT_TINY.render("ECO [E]" + (" ✓" if cd_left == 0 else ""),
+                                    True, C_HUD)
         screen.blit(eco_txt, (16, sh-44))
 
+    # Dica P2
     if not p2.active:
         d = FONT_TINY.render("[9] Adicionar Jogador 2", True, (50,80,100))
         screen.blit(d, d.get_rect(center=(sw//2, sh-16)))
 
+    # Tela de vitória
     if ganhou:
         ov = pygame.Surface((sw, sh), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 160))
         screen.blit(ov, (0, 0))
-
         w1 = FONT_BIG.render(f"JOGADOR {win_player} SAIU!", True, C_EXIT)
         w2 = FONT_MED.render("Você escapou do labirinto", True, (180,255,200))
-        w3 = FONT_SMALL.render("ENTER ou ESPAÇO para jogar de novo", True,
-                                (80,160,80))
+        w3 = FONT_SMALL.render("ENTER ou ESPAÇO para jogar de novo",
+                               True, (80,160,80))
         screen.blit(w1, w1.get_rect(center=(sw//2, sh//2 - 60)))
         screen.blit(w2, w2.get_rect(center=(sw//2, sh//2)))
         screen.blit(w3, w3.get_rect(center=(sw//2, sh//2 + 60)))
