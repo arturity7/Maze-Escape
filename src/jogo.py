@@ -280,6 +280,7 @@ class Inimigo:
     AGRO_TIME = 2000   # ms de perseguição
 
     def __init__(self, x, y):
+        self.vis = 0
         self.rect      = pygame.Rect(x, y, 32, 32)
         self.frames    = ENEMY_FRAMES
         self.direction = "down"
@@ -294,10 +295,10 @@ class Inimigo:
         Chamado quando a onda toca o inimigo OU quando um jogador
         usa sprint próximo. Sempre reseta o timer para 4 s — não acumula.
         """
-        agora           = pygame.time.get_ticks()
+        agora = pygame.time.get_ticks()
         self.agro_until = agora + self.AGRO_TIME
-        self.alvo       = jogador
-
+        self.alvo = jogador
+        self.vis = 255
     def ativo(self) -> bool:
         return pygame.time.get_ticks() < self.agro_until
 
@@ -358,8 +359,13 @@ class Inimigo:
                 pygame.quit()
                 exit()
 
-    def draw(self, surf: pygame.Surface, cam: tuple):
-        frame = self.frames[self.direction][self.anim_frame]
+    def draw(self, surf: pygame.Surface, cam: tuple, idx: int):
+        if idx in enemy_vis:
+            alpha = enemy_vis[idx]
+        else:
+            alpha = 0  # invisível total
+        frame = self.frames[self.direction][self.anim_frame].copy()
+        frame.set_alpha(alpha)
         surf.blit(frame, (self.rect.x - cam[0], self.rect.y - cam[1]))
 
 
@@ -368,7 +374,7 @@ class Inimigo:
 # ═══════════════════════════════════════════════════════════════════
 class Onda:
     SPEED  = 5
-    MAX_R  = 90
+    MAX_R  = 200
     PART_N = 3
 
     def __init__(self, cx, cy):
@@ -383,16 +389,17 @@ class Onda:
         if self.r >= self.MAX_R:
             self.ativa = False
 
-        for _ in range(self.PART_N):
-            ang = random.uniform(0, math.tau)
-            self.parts.append({
-                "x":    self.cx + math.cos(ang) * self.r,
-                "y":    self.cy + math.sin(ang) * self.r,
-                "vx":   math.cos(ang) * random.uniform(0.3, 1.8),
-                "vy":   math.sin(ang) * random.uniform(0.3, 1.8),
-                "life": random.randint(25, 70),
-                "sz":   random.uniform(1.2, 3.5),
-            })
+        if self.ativa:
+            for _ in range(self.PART_N):
+                ang = random.uniform(0, math.tau)
+                self.parts.append({
+                    "x":    self.cx + math.cos(ang) * self.r,
+                    "y":    self.cy + math.sin(ang) * self.r,
+                    "vx":   math.cos(ang) * random.uniform(0.3, 1.8),
+                    "vy":   math.sin(ang) * random.uniform(0.3, 1.8),
+                    "life": random.randint(10, 25),
+                    "sz":   random.uniform(1.2, 3.5),
+                })
 
         for p in self.parts[:]:
             p["x"]    += p["vx"]
@@ -408,10 +415,17 @@ class Onda:
             mx = (p1[0] + p2[0]) * 0.5
             my = (p1[1] + p2[1]) * 0.5
             d  = math.dist((self.cx, self.cy), (mx, my))
-            if d > 120:
+            if d > 200:
                 continue
             if abs(d - self.r) < 8:
                 wall_vis[idx] = 200
+
+
+    def reveal_inimigo(self, wall_vis: dict, segs_enum: list, inimigos: list):
+        for i, inimigo in enumerate(inimigos):
+            inimigo.draw(screen, cam, i)
+            if abs(d - self.r) < 15:
+                enemy_vis[i] = 255
 
         ex = EXIT_RECT.centerx
         ey = EXIT_RECT.centery
@@ -430,7 +444,7 @@ class Onda:
 
         for inimigo in inimigos:
             d = math.dist((self.cx, self.cy), inimigo.rect.center)
-            if abs(d - self.r) < 16:          # tolerância de toque
+            if abs(d - self.r) < 6:          # tolerância de toque
                 alvo = min(ativos,
                            key=lambda j: math.dist(inimigo.rect.center,
                                                    j.rect.center))
@@ -530,6 +544,7 @@ wall_segments = _gerar_segmentos(mapa)
 wall_segs_e   = list(enumerate(wall_segments))
 wall_vis: dict = {}
 exit_vis = 0
+enemy_vis = {}  # id(inimigo) -> alpha
 
 def _spawns_start_zone():
     return [
@@ -887,11 +902,14 @@ while True:
         if exit_vis > 0:
             exit_vis -= 2
 
+    for i in list(enemy_vis):
+        enemy_vis[i] -= 4
+        if enemy_vis[i] <= 0:
+            del enemy_vis[i]
+
         # Atualiza inimigos
         for inimigo in inimigos:
             inimigo.update(dt, paredes, jogadores)
-
-        cam = _camera(jogadores, sw, sh)
 
         # Checa vitória
         for i, j in enumerate(jogadores, 1):
@@ -900,7 +918,7 @@ while True:
                 win_player = i
                 win_timer  = agora
                 break
-
+    cam = _camera(jogadores, sw, sh)
     # ── Renderização ──────────────────────────────────────────────
     if BACKGROUND:
         screen.blit(BACKGROUND, (0, 0))
@@ -944,8 +962,8 @@ while True:
         pygame.draw.line(screen, (200, 240, 255), (sx1, sy1), (sx2, sy2), 1)
 
     # Inimigos
-    for inimigo in inimigos:
-        inimigo.draw(screen, cam)
+    for i, inimigo in enumerate(inimigos):
+        inimigo.draw(screen, cam, i)
 
     # Jogadores
     p1.draw(screen, cam, brightness)
