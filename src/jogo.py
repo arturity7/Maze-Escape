@@ -299,6 +299,7 @@ class Inimigo:
         self.agro_until = agora + self.AGRO_TIME
         self.alvo = jogador
         self.vis = 255
+
     def ativo(self) -> bool:
         return pygame.time.get_ticks() < self.agro_until
 
@@ -420,10 +421,12 @@ class Onda:
             if abs(d - self.r) < 8:
                 wall_vis[idx] = 200
 
+    # ── FIX: reveal_inimigo corrigido — só lógica, sem draw ────────
+    def reveal_inimigo(self, inimigos: list):
+        global exit_vis
 
-    def reveal_inimigo(self, wall_vis: dict, segs_enum: list, inimigos: list):
         for i, inimigo in enumerate(inimigos):
-            inimigo.draw(screen, cam, i)
+            d = math.dist((self.cx, self.cy), inimigo.rect.center)
             if abs(d - self.r) < 15:
                 enemy_vis[i] = 255
 
@@ -544,7 +547,7 @@ wall_segments = _gerar_segmentos(mapa)
 wall_segs_e   = list(enumerate(wall_segments))
 wall_vis: dict = {}
 exit_vis = 0
-enemy_vis = {}  # id(inimigo) -> alpha
+enemy_vis = {}  # idx -> alpha
 
 def _spawns_start_zone():
     return [
@@ -890,6 +893,7 @@ while True:
         for o in ondas[:]:
             o.update()
             o.reveal(wall_vis, wall_segs_e)
+            o.reveal_inimigo(inimigos)          # FIX: chamada adicionada
             o.tocar_inimigos(inimigos, jogadores)
             if not o.ativa and not o.parts:
                 ondas.remove(o)
@@ -902,12 +906,14 @@ while True:
         if exit_vis > 0:
             exit_vis -= 2
 
-    for i in list(enemy_vis):
-        enemy_vis[i] -= 4
-        if enemy_vis[i] <= 0:
-            del enemy_vis[i]
+        # FIX: fade do enemy_vis dentro do bloco "not ganhou",
+        #      e fora do loop de wall_vis (indentação correta)
+        for i in list(enemy_vis):
+            enemy_vis[i] -= 4
+            if enemy_vis[i] <= 0:
+                del enemy_vis[i]
 
-        # Atualiza inimigos
+        # FIX: atualização dos inimigos no nível certo (não dentro do for acima)
         for inimigo in inimigos:
             inimigo.update(dt, paredes, jogadores)
 
@@ -918,7 +924,9 @@ while True:
                 win_player = i
                 win_timer  = agora
                 break
+
     cam = _camera(jogadores, sw, sh)
+
     # ── Renderização ──────────────────────────────────────────────
     if BACKGROUND:
         screen.blit(BACKGROUND, (0, 0))
